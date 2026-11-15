@@ -53,6 +53,9 @@ struct ChannelListView: View {
         .sheet(isPresented: $isSearching) {
             ChannelSearchView()
         }
+        .onChange(of: channels, initial: true) {
+            player.channels = channels.compactMap(RadioPlayer.Station.init)
+        }
     }
 }
 

@@ -14,7 +14,18 @@ final class RadioPlayer {
         let name: String
         let url: URL
         let logo: URL?
+
+        init?(_ channel: Channel) {
+            guard let url = URL(string: channel.streamURL) else { return nil }
+            id = channel.stationID
+            name = channel.name
+            self.url = url
+            logo = .stationLogo(channel.faviconURL)
+        }
     }
+
+    /// The channel list, in order, for next/previous.
+    @ObservationIgnored var channels: [Station] = []
 
     private(set) var current: Station?
     private(set) var isPlaying = false
@@ -45,6 +56,8 @@ final class RadioPlayer {
             (commands.pauseCommand, { $0.stop() }),
             (commands.stopCommand, { $0.stop() }),
             (commands.togglePlayPauseCommand, { $0.toggle() }),
+            (commands.nextTrackCommand, { $0.skip(1) }),
+            (commands.previousTrackCommand, { $0.skip(-1) }),
         ]
         for (command, action) in handlers {
             command.addTarget { @Sendable [weak self] _ in
@@ -55,15 +68,25 @@ final class RadioPlayer {
     }
 
     func play(_ channel: Channel) {
-        guard let url = URL(string: channel.streamURL) else {
+        guard let station = Station(channel) else {
             error = "Invalid stream URL"
             return
         }
-        let station = Station(id: channel.stationID, name: channel.name, url: url,
-                              logo: .stationLogo(channel.faviconURL))
+        play(station)
+    }
+
+    func play(_ station: Station) {
         current = station
         resume()
         loadArtwork(station.logo)
+    }
+
+    /// Next (1) or previous (-1) channel in the list, wrapping around.
+    func skip(_ offset: Int) {
+        guard !channels.isEmpty else { return }
+        let index = channels.firstIndex { $0.id == current?.id }
+            .map { ($0 + offset + channels.count) % channels.count } ?? 0
+        play(channels[index])
     }
 
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
