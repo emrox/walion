@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Plays one live radio stream at a time. Shared app-wide via the environment.
 ///
-/// Every (re)start gets a fresh muted `AVPlayer`. The stream already playing keeps
+/// Every (re)start gets a fresh muted stream. The stream already playing keeps
 /// going until the new one actually produces audio, then they swap. If the new one
 /// fails, the old one just keeps playing.
 @Observable
@@ -32,15 +32,13 @@ final class RadioPlayer {
     /// Connecting, switching or rebuffering.
     private(set) var isLoading = false
     private(set) var error: String?
+    /// What the station says is on air right now: usually "Artist - Title", sometimes a show name.
+    private(set) var streamTitle: String?
 
     /// The stream you hear.
-    @ObservationIgnored private var player: AVPlayer?
-    @ObservationIgnored private var playerStation: Station?
+    @ObservationIgnored private var player: Stream?
     /// The stream being loaded, muted until it plays.
-    @ObservationIgnored private var next: AVPlayer?
-    // KVO tokens. Not `publisher(for:).values`: that only ever delivers the initial value here.
-    @ObservationIgnored private var playerObservations: [NSKeyValueObservation] = []
-    @ObservationIgnored private var nextObservations: [NSKeyValueObservation] = []
+    @ObservationIgnored private var next: Stream?
     /// Lock screen image for the station whose logo is `url`.
     @ObservationIgnored private var artwork: (url: URL, image: MPMediaItemArtwork)?
 
@@ -92,19 +90,8 @@ final class RadioPlayer {
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
     func resume() {
         guard let current else { return }
-        dropNext()
-        let item = AVPlayerItem(url: current.url)
-        let loading = AVPlayer(playerItem: item)
-        loading.isMuted = true
-        let changed: @Sendable (Any, Any) -> Void = { [weak self] _, _ in
-            DispatchQueue.main.async { self?.update() }
-        }
-        nextObservations = [
-            loading.observe(\.timeControlStatus, changeHandler: changed),
-            item.observe(\.status, changeHandler: changed),
-        ]
-        next = loading
-        loading.play()
+        next?.stop()
+        next = Stream(current) { [weak self] in self?.update() }
         isPlaying = true
         error = nil
         update()
@@ -115,50 +102,49 @@ final class RadioPlayer {
     }
 
     func stop() {
-        dropNext()
-        player?.pause()
+        next?.stop()
+        next = nil
+        player?.stop()
         player = nil
-        playerStation = nil
-        playerObservations = []
         isPlaying = false
         isLoading = false
+        streamTitle = nil
         publishNowPlaying()
     }
 
-    private func dropNext() {
-        next?.pause()
-        next = nil
-        nextObservations = []
-    }
-
-    /// Runs on every status change of either player.
+    /// Runs on every status or metadata change of either stream.
     private func update() {
-        if let item = next?.currentItem, item.status == .failed {
-            let reason = item.error?.localizedDescription ?? "Playback failed"
+        if let next, next.player.currentItem?.status == .failed {
+            let reason = next.player.currentItem?.error?.localizedDescription ?? "Playback failed"
             if player == nil {
                 stop()
                 error = reason
             } else {
-                error = "Couldn't play \(current?.name ?? "station"): \(reason)"
-                dropNext()
-                current = playerStation
+                error = "Couldn't play \(next.station.name): \(reason)"
+                next.stop()
+                self.next = nil
+                current = player?.station
             }
         }
-        if let item = player?.currentItem, item.status == .failed {
-            let reason = item.error?.localizedDescription ?? "Playback failed"
+        if player?.player.currentItem?.status == .failed {
+            let reason = player?.player.currentItem?.error?.localizedDescription ?? "Playback failed"
             stop()
             error = reason
         }
-        if let loaded = next, loaded.timeControlStatus == .playing {
-            player?.pause()
-            loaded.isMuted = false
+        if let loaded = next, loaded.player.timeControlStatus == .playing {
+            player?.stop()
+            loaded.player.isMuted = false
             player = loaded
-            playerStation = current
-            playerObservations = nextObservations
             next = nil
-            nextObservations = []
         }
-        isLoading = next != nil || player?.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        isLoading = next != nil || player?.player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        // Some stations just repeat their name; that adds nothing.
+        if let player, player.station == current, let title = player.title,
+           !player.station.name.localizedCaseInsensitiveContains(title) {
+            streamTitle = title
+        } else {
+            streamTitle = nil
+        }
         publishNowPlaying()
     }
 
@@ -167,7 +153,8 @@ final class RadioPlayer {
         let center = MPNowPlayingInfoCenter.default()
         center.nowPlayingInfo = current.map { station in
             var info: [String: Any] = [
-                MPMediaItemPropertyTitle: station.name,
+                MPMediaItemPropertyTitle: streamTitle ?? station.name,
+                MPMediaItemPropertyArtist: streamTitle == nil ? "" : station.name,
                 MPNowPlayingInfoPropertyIsLiveStream: true,
                 MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
             ]
@@ -200,6 +187,77 @@ final class RadioPlayer {
     }
 }
 
+/// One connection to a station: its player and the latest title the stream announced.
+private final class Stream {
+    let station: RadioPlayer.Station
+    let player: AVPlayer
+    private(set) var title: String?
+    private let onChange: () -> Void
+    // KVO tokens. Not `publisher(for:).values`: that only ever delivers the initial value here.
+    private var observations: [NSKeyValueObservation] = []
+    private var metadataReader: MetadataReader?
+
+    init(_ station: RadioPlayer.Station, onChange: @escaping () -> Void) {
+        self.station = station
+        self.onChange = onChange
+        let item = AVPlayerItem(url: station.url)
+        player = AVPlayer(playerItem: item)
+
+        let changed: @Sendable (Any, Any) -> Void = { [weak self] _, _ in
+            DispatchQueue.main.async { self?.onChange() }
+        }
+        observations = [
+            player.observe(\.timeControlStatus, changeHandler: changed),
+            item.observe(\.status, changeHandler: changed),
+        ]
+        metadataReader = MetadataReader(item) { [weak self] title in
+            self?.title = title
+            self?.onChange()
+        }
+
+        player.isMuted = true
+        player.play()
+    }
+
+    func stop() {
+        player.pause()
+    }
+}
+
+/// Reads "now playing" text from a stream: Icecast's StreamTitle or HLS ID3 tags.
+private final class MetadataReader: NSObject, AVPlayerItemMetadataOutputPushDelegate, Sendable {
+    private let onTitle: @Sendable @MainActor (String?) -> Void
+
+    init(_ item: AVPlayerItem, onTitle: @escaping @Sendable @MainActor (String?) -> Void) {
+        self.onTitle = onTitle
+        super.init()
+        let output = AVPlayerItemMetadataOutput(identifiers: nil)
+        output.setDelegate(self, queue: .main)
+        item.add(output)
+    }
+
+    nonisolated func metadataOutput(_ output: AVPlayerItemMetadataOutput,
+                                    didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup],
+                                    from track: AVPlayerItemTrack?) {
+        // AVMetadataItem is immutable (only its AVMutableMetadataItem subclass isn't), just not marked Sendable.
+        nonisolated(unsafe) let items = groups.flatMap(\.items)
+        guard items.contains(where: { $0.commonKey == .commonKeyTitle || $0.commonKey == .commonKeyArtist })
+        else { return }  // e.g. Icecast's empty "icy/json" item
+        Task { [onTitle] in
+            let parts = [await Self.text(.commonKeyArtist, in: items), await Self.text(.commonKeyTitle, in: items)]
+            let text = parts.compactMap { $0 }.joined(separator: " - ")
+            await onTitle(text.isEmpty ? nil : text)
+        }
+    }
+
+    nonisolated private static func text(_ key: AVMetadataKey, in items: [AVMetadataItem]) async -> String? {
+        guard let item = items.first(where: { $0.commonKey == key }),
+              let value = try? await item.load(.stringValue) else { return nil }
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+}
+
 struct NowPlayingBar: View {
     @Environment(RadioPlayer.self) private var player
 
@@ -209,7 +267,7 @@ struct NowPlayingBar: View {
                 StationLogo(url: station.logo)
                 VStack(alignment: .leading) {
                     Text(station.name).lineLimit(1)
-                    Text(player.error ?? (player.isLoading ? "Loading…" : player.isPlaying ? "Live" : "Stopped"))
+                    Text(player.error ?? (player.isLoading ? "Loading…" : player.isPlaying ? player.streamTitle ?? "Live" : "Stopped"))
                         .font(.caption)
                         .foregroundStyle(player.error == nil ? Color.secondary : Color.red)
                         .lineLimit(1)
