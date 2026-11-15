@@ -2,6 +2,10 @@ import AVFoundation
 import SwiftUI
 
 /// Plays one live radio stream at a time. Shared app-wide via the environment.
+///
+/// Every (re)start gets a fresh muted `AVPlayer`. The stream already playing keeps
+/// going until the new one actually produces audio, then they swap. If the new one
+/// fails, the old one just keeps playing.
 @Observable
 final class RadioPlayer {
     struct Station: Equatable {
@@ -12,23 +16,23 @@ final class RadioPlayer {
 
     private(set) var current: Station?
     private(set) var isPlaying = false
-    /// Connecting or rebuffering.
+    /// Connecting, switching or rebuffering.
     private(set) var isLoading = false
     private(set) var error: String?
 
-    private let player = AVPlayer()
+    /// The stream you hear.
+    @ObservationIgnored private var player: AVPlayer?
+    @ObservationIgnored private var playerStation: Station?
+    /// The stream being loaded, muted until it plays.
+    @ObservationIgnored private var next: AVPlayer?
     // KVO tokens. Not `publisher(for:).values`: that only ever delivers the initial value here.
-    @ObservationIgnored private var loadingObservation: NSKeyValueObservation?
-    @ObservationIgnored private var statusObservation: NSKeyValueObservation?
+    @ObservationIgnored private var playerObservations: [NSKeyValueObservation] = []
+    @ObservationIgnored private var nextObservations: [NSKeyValueObservation] = []
 
     init() {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         #endif
-        loadingObservation = player.observe(\.timeControlStatus) { @Sendable [weak self] player, _ in
-            let loading = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
-            DispatchQueue.main.async { self?.isLoading = loading }
-        }
     }
 
     func play(_ channel: Channel) {
@@ -43,25 +47,68 @@ final class RadioPlayer {
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
     func resume() {
         guard let current else { return }
+        dropNext()
         let item = AVPlayerItem(url: current.url)
-        statusObservation = item.observe(\.status) { @Sendable [weak self] item, _ in
-            guard item.status == .failed else { return }
-            let message = item.error?.localizedDescription ?? "Playback failed"
-            DispatchQueue.main.async {
-                self?.stop()
-                self?.error = message
-            }
+        let loading = AVPlayer(playerItem: item)
+        loading.isMuted = true
+        let changed: @Sendable (Any, Any) -> Void = { [weak self] _, _ in
+            DispatchQueue.main.async { self?.update() }
         }
-        player.replaceCurrentItem(with: item)
-        player.play()
+        nextObservations = [
+            loading.observe(\.timeControlStatus, changeHandler: changed),
+            item.observe(\.status, changeHandler: changed),
+        ]
+        next = loading
+        loading.play()
         isPlaying = true
         error = nil
+        update()
     }
 
     func stop() {
-        player.pause()  // otherwise the player keeps "waiting" for an item
-        player.replaceCurrentItem(with: nil)
+        dropNext()
+        player?.pause()
+        player = nil
+        playerStation = nil
+        playerObservations = []
         isPlaying = false
+        isLoading = false
+    }
+
+    private func dropNext() {
+        next?.pause()
+        next = nil
+        nextObservations = []
+    }
+
+    /// Runs on every status change of either player.
+    private func update() {
+        if let item = next?.currentItem, item.status == .failed {
+            let reason = item.error?.localizedDescription ?? "Playback failed"
+            if player == nil {
+                stop()
+                error = reason
+            } else {
+                error = "Couldn't play \(current?.name ?? "station"): \(reason)"
+                dropNext()
+                current = playerStation
+            }
+        }
+        if let item = player?.currentItem, item.status == .failed {
+            let reason = item.error?.localizedDescription ?? "Playback failed"
+            stop()
+            error = reason
+        }
+        if let loaded = next, loaded.timeControlStatus == .playing {
+            player?.pause()
+            loaded.isMuted = false
+            player = loaded
+            playerStation = current
+            playerObservations = nextObservations
+            next = nil
+            nextObservations = []
+        }
+        isLoading = next != nil || player?.timeControlStatus == .waitingToPlayAtSpecifiedRate
     }
 }
 
