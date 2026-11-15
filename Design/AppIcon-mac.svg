@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Renders AppIcon.png (from AppIcon.svg) in the macOS icon grid: 824pt rounded square centered on a 1024 canvas, with a soft drop shadow -->
+    <clipPath id="shape"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <g clip-path="url(#shape)">
+      <image href="AppIcon.png" x="100" y="100" width="824" height="824"/>
+    </g>
+  </g>
+</svg>

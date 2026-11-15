@@ -1,0 +1,150 @@
+<!--
+  Walion app icon (iOS, full-bleed; the system rounds the corners).
+  Render to PNG with headless Chrome, then run the same for AppIcon-mac.svg:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+      --force-device-scale-factor=1 --default-background-color=00000000 --window-size=1024,1024 \
+      --screenshot=AppIcon.png "file://$PWD/AppIcon.svg"
+  Copy AppIcon.png to Walion/Assets.xcassets/AppIcon.appiconset/icon-ios-1024.png, and
+  AppIcon-mac.png resized (sips -z N N) to the icon-mac-N.png files there.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#8FDCCF"/>
+      <stop offset="0.6" stop-color="#46A79D"/>
+      <stop offset="1" stop-color="#2A7C77"/>
+    </radialGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A8693A"/>
+      <stop offset="0.5" stop-color="#8A5128"/>
+      <stop offset="1" stop-color="#6A3B1B"/>
+    </linearGradient>
+    <linearGradient id="grain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0.10"/>
+      <stop offset="0.3" stop-color="#fff" stop-opacity="0.05"/>
+      <stop offset="0.55" stop-color="#000" stop-opacity="0.08"/>
+      <stop offset="0.8" stop-color="#fff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.12"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF1D8"/>
+      <stop offset="1" stop-color="#E2CFA3"/>
+    </linearGradient>
+    <radialGradient id="screen" cx="45%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#C8F5EC"/>
+      <stop offset="0.35" stop-color="#6CC4B7"/>
+      <stop offset="0.8" stop-color="#2B6763"/>
+      <stop offset="1" stop-color="#173B3A"/>
+    </radialGradient>
+    <linearGradient id="fabric" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A2C16"/>
+      <stop offset="1" stop-color="#2E1A0C"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#C9A45C"/>
+      <stop offset="0.5" stop-color="#F1D99A"/>
+      <stop offset="1" stop-color="#B58C43"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#B8C2C4"/>
+    </linearGradient>
+    <clipPath id="screenClip"><rect x="250" y="426" width="340" height="300" rx="62"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g transform="translate(512 530) scale(1.08) translate(-512 -530)">
+
+  <!-- atomic-age sparkles -->
+  <g fill="#FBF1D8" opacity="0.85">
+    <path d="M190 250 l10 -34 l10 34 l34 10 l-34 10 l-10 34 l-10 -34 l-34 -10 z"/>
+    <path d="M842 214 l7 -24 l7 24 l24 7 l-24 7 l-7 24 l-7 -24 l-24 -7 z"/>
+  </g>
+
+  <!-- floor shadow -->
+  <ellipse cx="512" cy="892" rx="330" ry="26" fill="#0E3B38" opacity="0.35"/>
+
+  <!-- rabbit-ear antenna -->
+  <g stroke="url(#chrome)" stroke-width="11" stroke-linecap="round">
+    <line x1="500" y1="336" x2="350" y2="148"/>
+    <line x1="524" y1="336" x2="690" y2="166"/>
+  </g>
+  <circle cx="350" cy="148" r="15" fill="#F4F7F7"/>
+  <circle cx="690" cy="166" r="15" fill="#F4F7F7"/>
+  <path d="M462 356 a50 40 0 0 1 100 0 z" fill="#3A2312"/>
+  <path d="M478 350 a34 26 0 0 1 40 -22" stroke="#fff" stroke-opacity="0.35" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+  <!-- splayed legs -->
+  <g fill="#4A2A12">
+    <path d="M262 790 h44 l-30 98 h-18 z"/>
+    <path d="M718 790 h44 l4 98 h-18 z"/>
+  </g>
+  <g fill="url(#brass)">
+    <rect x="256" y="880" width="24" height="12" rx="4"/>
+    <rect x="746" y="880" width="24" height="12" rx="4"/>
+  </g>
+
+  <!-- cabinet -->
+  <rect x="176" y="352" width="672" height="452" rx="64" fill="url(#wood)"/>
+  <rect x="176" y="352" width="672" height="452" rx="64" fill="url(#grain)"/>
+  <rect x="190" y="364" width="644" height="20" rx="10" fill="#fff" opacity="0.12"/>
+  <rect x="176" y="352" width="672" height="452" rx="64" fill="none" stroke="#3E220E" stroke-opacity="0.5" stroke-width="4"/>
+
+  <!-- screen bezel + CRT -->
+  <rect x="222" y="398" width="396" height="356" rx="78" fill="url(#cream)"/>
+  <rect x="222" y="398" width="396" height="356" rx="78" fill="none" stroke="#B89A62" stroke-width="4"/>
+  <rect x="250" y="426" width="340" height="300" rx="62" fill="url(#screen)"/>
+  <g clip-path="url(#screenClip)">
+    <!-- broadcast mark ((•)) -->
+    <g fill="none" stroke="#F4FFFC" stroke-width="17" stroke-linecap="round">
+      <circle cx="420" cy="576" r="22" fill="#F4FFFC" stroke="none"/>
+      <path d="M372 528 a68 68 0 0 0 0 96"/>
+      <path d="M468 528 a68 68 0 0 1 0 96"/>
+      <path d="M334 490 a122 122 0 0 0 0 172" opacity="0.75"/>
+      <path d="M506 490 a122 122 0 0 1 0 172" opacity="0.75"/>
+    </g>
+    <!-- scanlines -->
+    <g stroke="#0F2E2D" stroke-opacity="0.10" stroke-width="3">
+      <line x1="250" y1="440" x2="590" y2="440"/><line x1="250" y1="452" x2="590" y2="452"/>
+      <line x1="250" y1="464" x2="590" y2="464"/><line x1="250" y1="476" x2="590" y2="476"/>
+      <line x1="250" y1="488" x2="590" y2="488"/><line x1="250" y1="500" x2="590" y2="500"/>
+      <line x1="250" y1="512" x2="590" y2="512"/><line x1="250" y1="524" x2="590" y2="524"/>
+      <line x1="250" y1="536" x2="590" y2="536"/><line x1="250" y1="548" x2="590" y2="548"/>
+      <line x1="250" y1="560" x2="590" y2="560"/><line x1="250" y1="572" x2="590" y2="572"/>
+      <line x1="250" y1="584" x2="590" y2="584"/><line x1="250" y1="596" x2="590" y2="596"/>
+      <line x1="250" y1="608" x2="590" y2="608"/><line x1="250" y1="620" x2="590" y2="620"/>
+      <line x1="250" y1="632" x2="590" y2="632"/><line x1="250" y1="644" x2="590" y2="644"/>
+      <line x1="250" y1="656" x2="590" y2="656"/><line x1="250" y1="668" x2="590" y2="668"/>
+      <line x1="250" y1="680" x2="590" y2="680"/><line x1="250" y1="692" x2="590" y2="692"/>
+      <line x1="250" y1="704" x2="590" y2="704"/><line x1="250" y1="716" x2="590" y2="716"/>
+    </g>
+    <!-- glass glare -->
+    <path d="M272 486 q4 -36 44 -42" stroke="#fff" stroke-opacity="0.6" stroke-width="10" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- radio tuning dial -->
+  <rect x="652" y="398" width="148" height="66" rx="18" fill="url(#cream)" stroke="#B89A62" stroke-width="4"/>
+  <g stroke="#6A3B1B" stroke-width="3"><line x1="670" y1="416" x2="670" y2="440"/><line x1="682" y1="422" x2="682" y2="440"/><line x1="694" y1="416" x2="694" y2="440"/><line x1="706" y1="422" x2="706" y2="440"/><line x1="718" y1="416" x2="718" y2="440"/><line x1="730" y1="422" x2="730" y2="440"/><line x1="742" y1="416" x2="742" y2="440"/><line x1="754" y1="422" x2="754" y2="440"/><line x1="766" y1="416" x2="766" y2="440"/><line x1="778" y1="422" x2="778" y2="440"/></g>
+  <rect x="709" y="408" width="7" height="46" rx="3" fill="#D2412F"/>
+
+  <!-- speaker grille -->
+  <rect x="652" y="480" width="148" height="152" rx="24" fill="url(#fabric)"/>
+  <g stroke="#E4C77F" stroke-width="8" stroke-linecap="round">
+    <line x1="674" y1="506" x2="778" y2="506"/>
+    <line x1="674" y1="532" x2="778" y2="532"/>
+    <line x1="674" y1="558" x2="778" y2="558"/>
+    <line x1="674" y1="584" x2="778" y2="584"/>
+    <line x1="674" y1="610" x2="778" y2="610"/>
+  </g>
+
+  <!-- knobs -->
+  <g>
+    <circle cx="690" cy="696" r="34" fill="#3A2312"/>
+    <circle cx="690" cy="692" r="30" fill="url(#cream)"/>
+    <line x1="690" y1="692" x2="690" y2="668" stroke="#6A3B1B" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="764" cy="696" r="34" fill="#3A2312"/>
+    <circle cx="764" cy="692" r="30" fill="url(#cream)"/>
+    <line x1="764" y1="692" x2="784" y2="678" stroke="#6A3B1B" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  </g>
+</svg>
