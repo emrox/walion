@@ -1,6 +1,13 @@
 # Walion
 
-Live stream player for iPhone, iPad and macOS, built with SwiftUI. Radio stations are found via [radio-browser.info](https://www.radio-browser.info).
+Live stream player for iPhone, iPad and macOS, built with SwiftUI. Radio comes first; video is planned.
+
+## Features
+
+- **Channel list**: search the [radio-browser.info](https://www.radio-browser.info) directory and save stations to your own list.
+- **Playback**: tap a channel to play it. When you switch, the old channel keeps playing until the new one has loaded, and keeps playing if the new one fails.
+- **Now playing**: the bar at the bottom shows the station logo, a loading indicator, and the current song or show when the station sends it.
+- **System controls**: lock screen, Control Center, Dynamic Island and macOS Now Playing show the station, its logo and the current song. Play/stop, plus next/previous to step through your channel list. On iOS, audio keeps playing in the background.
 
 ## Requirements
 
