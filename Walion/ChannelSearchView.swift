@@ -29,6 +29,8 @@ struct ChannelSearchView: View {
                 .buttonStyle(.plain)
                 .disabled(isSaved)
             }
+            .opacity(isLoading ? 0.4 : 1)  // old results stay visible but dimmed while searching
+            .animation(.default, value: isLoading)
             .overlay { placeholder }
             .searchable(text: $query, prompt: "Station name")
             .task(id: query) { await search() }
@@ -61,7 +63,8 @@ struct ChannelSearchView: View {
         return [station.country, format].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
-    /// Debounced: `.task(id:)` cancels the previous run on every keystroke.
+    /// Debounced: `.task(id:)` cancels the previous run on every keystroke,
+    /// so the API is only asked once typing pauses for half a second.
     private func search() async {
         let term = query.trimmingCharacters(in: .whitespaces)
         guard !term.isEmpty else {
@@ -72,7 +75,7 @@ struct ChannelSearchView: View {
         }
         isLoading = true
         do {
-            try await Task.sleep(for: .milliseconds(300))
+            try await Task.sleep(for: .milliseconds(500))
             let found = try await RadioBrowser.search(name: term)
             guard !Task.isCancelled else { return }
             results = found
