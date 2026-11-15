@@ -30,7 +30,7 @@ open build/Build/Products/Debug/Walion.app
 iOS Simulator:
 
 ```sh
-xcodebuild -project Walion.xcodeproj -scheme Walion -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build build
+xcodebuild -project Walion.xcodeproj -scheme Walion -destination 'generic/platform=iOS Simulator' -derivedDataPath build build
 xcrun simctl boot 'iPhone 17 Pro'; open -a Simulator
 xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/Walion.app
 xcrun simctl launch booted com.example.Walion

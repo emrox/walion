@@ -3,18 +3,31 @@ import SwiftData
 
 struct ChannelListView: View {
     @Environment(\.modelContext) private var context
+    @Environment(RadioPlayer.self) private var player
     @Query(sort: \Channel.addedAt) private var channels: [Channel]
     @State private var isSearching = false
 
     var body: some View {
         List {
             ForEach(channels) { channel in
-                StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
-                    .contextMenu {
-                        Button("Remove", systemImage: "trash", role: .destructive) {
-                            context.delete(channel)
+                Button {
+                    player.play(channel)
+                } label: {
+                    HStack {
+                        StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
+                        Spacer()
+                        if player.isPlaying && player.current?.id == channel.stationID {
+                            Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint)
                         }
                     }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Remove", systemImage: "trash", role: .destructive) {
+                        context.delete(channel)
+                    }
+                }
             }
             .onDelete { offsets in
                 offsets.map { channels[$0] }.forEach(context.delete)

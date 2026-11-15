@@ -3,6 +3,8 @@ import SwiftData
 
 @main
 struct WalionApp: App {
+    @State private var player = RadioPlayer()
+
     var body: some Scene {
         WindowGroup {
             NavigationStack {
@@ -15,6 +17,8 @@ struct WalionApp: App {
                 }
                 .navigationTitle("Walion")
             }
+            .safeAreaInset(edge: .bottom) { NowPlayingBar() }
+            .environment(player)
         }
         .modelContainer(for: Channel.self)
     }
