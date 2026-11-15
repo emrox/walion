@@ -36,11 +36,14 @@ final class RadioPlayer {
     private(set) var error: String?
     /// What the station says is on air right now: usually "Artist - Title", sometimes a show name.
     private(set) var streamTitle: String?
+    /// When the sleep timer will stop playback.
+    private(set) var sleepAt: Date?
 
     /// The stream you hear.
     @ObservationIgnored private var player: Stream?
     /// The stream being loaded, muted until it plays.
     @ObservationIgnored private var next: Stream?
+    @ObservationIgnored private var sleepTask: Task<Void, Never>?
     /// Lock screen image for the station whose logo is `url`.
     @ObservationIgnored private var artwork: (url: URL, image: MPMediaItemArtwork)?
 
@@ -103,7 +106,34 @@ final class RadioPlayer {
         isPlaying ? stop() : resume()
     }
 
+    /// Stop playback after `duration`; nil turns the timer off. Stopping by hand also turns it off.
+    func setSleepTimer(_ duration: Duration?) {
+        sleepTask?.cancel()
+        sleepTask = nil
+        sleepAt = nil
+        guard let duration else { return }
+        sleepAt = .now.addingTimeInterval(Double(duration.components.seconds))
+        sleepTask = Task { [weak self] in
+            // Continuous clock: keeps counting while the device sleeps.
+            // The last 10 seconds fade the volume down instead of cutting off.
+            let fade = min(duration, .seconds(10))
+            let steps = 50
+            do {
+                try await Task.sleep(for: duration - fade)
+                for step in 1...steps {
+                    try await Task.sleep(for: fade / steps)
+                    self?.player?.player.volume = Float(steps - step) / Float(steps)
+                }
+            } catch {
+                self?.player?.player.volume = 1  // timer changed or turned off mid-fade
+                return
+            }
+            self?.stop()
+        }
+    }
+
     func stop() {
+        setSleepTimer(nil)
         next?.stop()
         next = nil
         player?.stop()
@@ -279,6 +309,9 @@ struct NowPlayingBar: View {
                 Spacer()
                 if player.isLoading {
                     ProgressView().controlSize(.small)
+                }
+                if player.isPlaying {
+                    SleepTimerMenu()
                 }
                 Button(player.isPlaying ? "Stop" : "Play",
                        systemImage: player.isPlaying ? "stop.fill" : "play.fill") {
