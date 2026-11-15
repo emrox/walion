@@ -12,15 +12,23 @@ final class RadioPlayer {
 
     private(set) var current: Station?
     private(set) var isPlaying = false
+    /// Connecting or rebuffering.
+    private(set) var isLoading = false
     private(set) var error: String?
 
     private let player = AVPlayer()
-    private var statusTask: Task<Void, Never>?
+    // KVO tokens. Not `publisher(for:).values`: that only ever delivers the initial value here.
+    @ObservationIgnored private var loadingObservation: NSKeyValueObservation?
+    @ObservationIgnored private var statusObservation: NSKeyValueObservation?
 
     init() {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         #endif
+        loadingObservation = player.observe(\.timeControlStatus) { @Sendable [weak self] player, _ in
+            let loading = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+            DispatchQueue.main.async { self?.isLoading = loading }
+        }
     }
 
     func play(_ channel: Channel) {
@@ -36,21 +44,22 @@ final class RadioPlayer {
     func resume() {
         guard let current else { return }
         let item = AVPlayerItem(url: current.url)
+        statusObservation = item.observe(\.status) { @Sendable [weak self] item, _ in
+            guard item.status == .failed else { return }
+            let message = item.error?.localizedDescription ?? "Playback failed"
+            DispatchQueue.main.async {
+                self?.stop()
+                self?.error = message
+            }
+        }
         player.replaceCurrentItem(with: item)
         player.play()
         isPlaying = true
         error = nil
-
-        statusTask?.cancel()
-        statusTask = Task { [weak self] in
-            for await status in item.publisher(for: \.status).values where status == .failed {
-                self?.error = item.error?.localizedDescription ?? "Playback failed"
-                self?.stop()
-            }
-        }
     }
 
     func stop() {
+        player.pause()  // otherwise the player keeps "waiting" for an item
         player.replaceCurrentItem(with: nil)
         isPlaying = false
     }
@@ -64,12 +73,15 @@ struct NowPlayingBar: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text(station.name).lineLimit(1)
-                    Text(player.error ?? (player.isPlaying ? "Live" : "Stopped"))
+                    Text(player.error ?? (player.isLoading ? "Loading…" : player.isPlaying ? "Live" : "Stopped"))
                         .font(.caption)
                         .foregroundStyle(player.error == nil ? Color.secondary : Color.red)
                         .lineLimit(1)
                 }
                 Spacer()
+                if player.isLoading {
+                    ProgressView().controlSize(.small)
+                }
                 Button(player.isPlaying ? "Stop" : "Play",
                        systemImage: player.isPlaying ? "stop.fill" : "play.fill") {
                     player.isPlaying ? player.stop() : player.resume()

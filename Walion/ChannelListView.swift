@@ -17,7 +17,11 @@ struct ChannelListView: View {
                         StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
                         Spacer()
                         if player.isPlaying && player.current?.id == channel.stationID {
-                            Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint)
+                            if player.isLoading {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint)
+                            }
                         }
                     }
                     .contentShape(Rectangle())
