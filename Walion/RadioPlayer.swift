@@ -1,4 +1,5 @@
 import AVFoundation
+import MediaPlayer
 import SwiftUI
 
 /// Plays one live radio stream at a time. Shared app-wide via the environment.
@@ -33,6 +34,21 @@ final class RadioPlayer {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         #endif
+        // Lock screen, Control Center, Dynamic Island, macOS Now Playing and media keys.
+        // Live radio has no pause: "pause" means stop.
+        let commands = MPRemoteCommandCenter.shared()
+        let handlers: [(MPRemoteCommand, @Sendable @MainActor (RadioPlayer) -> Void)] = [
+            (commands.playCommand, { $0.resume() }),
+            (commands.pauseCommand, { $0.stop() }),
+            (commands.stopCommand, { $0.stop() }),
+            (commands.togglePlayPauseCommand, { $0.toggle() }),
+        ]
+        for (command, action) in handlers {
+            command.addTarget { @Sendable [weak self] _ in
+                DispatchQueue.main.async { if let self { action(self) } }
+                return .success
+            }
+        }
     }
 
     func play(_ channel: Channel) {
@@ -65,6 +81,10 @@ final class RadioPlayer {
         update()
     }
 
+    func toggle() {
+        isPlaying ? stop() : resume()
+    }
+
     func stop() {
         dropNext()
         player?.pause()
@@ -73,6 +93,7 @@ final class RadioPlayer {
         playerObservations = []
         isPlaying = false
         isLoading = false
+        publishNowPlaying()
     }
 
     private func dropNext() {
@@ -109,6 +130,20 @@ final class RadioPlayer {
             nextObservations = []
         }
         isLoading = next != nil || player?.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        publishNowPlaying()
+    }
+
+    /// What the system shows on the lock screen, in Control Center and the Dynamic Island.
+    private func publishNowPlaying() {
+        let center = MPNowPlayingInfoCenter.default()
+        center.nowPlayingInfo = current.map { station in
+            [
+                MPMediaItemPropertyTitle: station.name,
+                MPNowPlayingInfoPropertyIsLiveStream: true,
+                MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            ]
+        }
+        center.playbackState = isPlaying ? .playing : .paused
     }
 }
 
@@ -131,7 +166,7 @@ struct NowPlayingBar: View {
                 }
                 Button(player.isPlaying ? "Stop" : "Play",
                        systemImage: player.isPlaying ? "stop.fill" : "play.fill") {
-                    player.isPlaying ? player.stop() : player.resume()
+                    player.toggle()
                 }
                 .labelStyle(.iconOnly)
                 .font(.title2)
