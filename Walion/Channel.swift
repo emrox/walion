@@ -10,6 +10,8 @@ final class Channel {
     var faviconURL: String
     var country: String
     var addedAt = Date.now
+    /// When this channel last started playing, for "Recently Played".
+    var lastPlayedAt: Date?
 
     init(_ station: Station) {
         stationID = station.id

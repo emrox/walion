@@ -28,6 +28,8 @@ final class RadioPlayer {
     @ObservationIgnored var channels: [Station] = []
 
     private(set) var current: Station?
+    /// The station you actually hear, once its audio has started.
+    private(set) var playing: Station?
     private(set) var isPlaying = false
     /// Connecting, switching or rebuffering.
     private(set) var isLoading = false
@@ -106,6 +108,7 @@ final class RadioPlayer {
         next = nil
         player?.stop()
         player = nil
+        playing = nil
         isPlaying = false
         isLoading = false
         streamTitle = nil
@@ -135,6 +138,7 @@ final class RadioPlayer {
             player?.stop()
             loaded.player.isMuted = false
             player = loaded
+            playing = loaded.station
             next = nil
         }
         isLoading = next != nil || player?.player.timeControlStatus == .waitingToPlayAtSpecifiedRate

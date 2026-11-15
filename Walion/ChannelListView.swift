@@ -10,28 +10,12 @@ struct ChannelListView: View {
     var body: some View {
         List {
             ForEach(channels) { channel in
-                Button {
-                    player.play(channel)
-                } label: {
-                    HStack {
-                        StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
-                        Spacer()
-                        if player.isPlaying && player.current?.id == channel.stationID {
-                            if player.isLoading {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint)
-                            }
+                ChannelRow(channel: channel)
+                    .contextMenu {
+                        Button("Remove", systemImage: "trash", role: .destructive) {
+                            context.delete(channel)
                         }
                     }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button("Remove", systemImage: "trash", role: .destructive) {
-                        context.delete(channel)
-                    }
-                }
             }
             .onDelete { offsets in
                 offsets.map { channels[$0] }.forEach(context.delete)
@@ -56,6 +40,32 @@ struct ChannelListView: View {
         .onChange(of: channels, initial: true) {
             player.channels = channels.compactMap(RadioPlayer.Station.init)
         }
+    }
+}
+
+/// A saved channel; tap to play.
+struct ChannelRow: View {
+    @Environment(RadioPlayer.self) private var player
+    let channel: Channel
+
+    var body: some View {
+        Button {
+            player.play(channel)
+        } label: {
+            HStack {
+                StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
+                Spacer()
+                if player.isPlaying && player.current?.id == channel.stationID {
+                    if player.isLoading {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
