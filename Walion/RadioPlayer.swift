@@ -13,6 +13,7 @@ final class RadioPlayer {
         let id: String
         let name: String
         let url: URL
+        let logo: URL?
     }
 
     private(set) var current: Station?
@@ -29,6 +30,8 @@ final class RadioPlayer {
     // KVO tokens. Not `publisher(for:).values`: that only ever delivers the initial value here.
     @ObservationIgnored private var playerObservations: [NSKeyValueObservation] = []
     @ObservationIgnored private var nextObservations: [NSKeyValueObservation] = []
+    /// Lock screen image for the station whose logo is `url`.
+    @ObservationIgnored private var artwork: (url: URL, image: MPMediaItemArtwork)?
 
     init() {
         #if os(iOS)
@@ -56,8 +59,11 @@ final class RadioPlayer {
             error = "Invalid stream URL"
             return
         }
-        current = Station(id: channel.stationID, name: channel.name, url: url)
+        let station = Station(id: channel.stationID, name: channel.name, url: url,
+                              logo: .stationLogo(channel.faviconURL))
+        current = station
         resume()
+        loadArtwork(station.logo)
     }
 
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
@@ -137,13 +143,37 @@ final class RadioPlayer {
     private func publishNowPlaying() {
         let center = MPNowPlayingInfoCenter.default()
         center.nowPlayingInfo = current.map { station in
-            [
+            var info: [String: Any] = [
                 MPMediaItemPropertyTitle: station.name,
                 MPNowPlayingInfoPropertyIsLiveStream: true,
                 MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
             ]
+            if let artwork, artwork.url == station.logo {
+                info[MPMediaItemPropertyArtwork] = artwork.image
+            }
+            return info
         }
         center.playbackState = isPlaying ? .playing : .paused
+    }
+
+    private func loadArtwork(_ url: URL?) {
+        guard let url, artwork?.url != url else { return }
+        Task {
+            guard let (data, _) = try? await URLSession.shared.data(from: url),
+                  let image = Self.artwork(from: data) else { return }
+            artwork = (url, image)
+            publishNowPlaying()
+        }
+    }
+
+    /// Nonisolated: the system asks for the image on a background thread.
+    nonisolated private static func artwork(from data: Data) -> MPMediaItemArtwork? {
+        #if os(macOS)
+        guard let image = NSImage(data: data) else { return nil }
+        #else
+        guard let image = UIImage(data: data) else { return nil }
+        #endif
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
 
@@ -153,6 +183,7 @@ struct NowPlayingBar: View {
     var body: some View {
         if let station = player.current {
             HStack {
+                StationLogo(url: station.logo)
                 VStack(alignment: .leading) {
                     Text(station.name).lineLimit(1)
                     Text(player.error ?? (player.isLoading ? "Loading…" : player.isPlaying ? "Live" : "Stopped"))

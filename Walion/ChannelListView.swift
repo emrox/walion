@@ -63,17 +63,35 @@ struct StationRow: View {
 
     var body: some View {
         HStack {
-            AsyncImage(url: URL(string: favicon)) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                Image(systemName: "radio").foregroundStyle(.secondary)
-            }
-            .frame(width: 40, height: 40)
+            StationLogo(url: .stationLogo(favicon))
 
             VStack(alignment: .leading) {
                 Text(name).lineLimit(1)
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
+    }
+}
+
+struct StationLogo: View {
+    let url: URL?
+
+    var body: some View {
+        AsyncImage(url: url) { image in
+            image.resizable().scaledToFit()
+        } placeholder: {
+            Image(systemName: "radio").foregroundStyle(.secondary)
+        }
+        .frame(width: 40, height: 40)
+    }
+}
+
+extension URL {
+    /// Many station logos are plain http, which App Transport Security blocks.
+    /// Most of those hosts serve the same file over https.
+    static func stationLogo(_ string: String) -> URL? {
+        guard var components = URLComponents(string: string), components.host != nil else { return nil }
+        if components.scheme == "http" { components.scheme = "https" }
+        return components.url
     }
 }
