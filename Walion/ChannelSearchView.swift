@@ -18,7 +18,9 @@ struct ChannelSearchView: View {
                 Button {
                     // New channels go to the end of the list.
                     let last = channels.map(\.position).max() ?? -1
-                    context.insert(Channel(result, position: last + 1))
+                    let channel = Channel(result, position: last + 1)
+                    context.insert(channel)
+                    Task { await channel.refreshLogoIfNeeded() }
                 } label: {
                     HStack {
                         StationRow(name: result.name, favicon: result.favicon, detail: detail(result))

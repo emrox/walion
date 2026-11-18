@@ -19,6 +19,8 @@ final class RadioPlayer {
         let name: String
         let url: URL
         let logo: URL?
+        /// The channel's cached logo, if it has one yet.
+        let logoData: Data?
 
         init?(_ channel: Channel) {
             guard let url = URL(string: channel.streamURL) else { return nil }
@@ -26,6 +28,7 @@ final class RadioPlayer {
             name = channel.name
             self.url = url
             logo = .stationLogo(channel.faviconURL)
+            logoData = channel.logoData
         }
     }
 
@@ -99,7 +102,7 @@ final class RadioPlayer {
     func play(_ station: Station) {
         current = station
         resume()
-        loadArtwork(station.logo)
+        loadArtwork(station)
     }
 
     /// Next (1) or previous (-1) channel in the list, wrapping around.
@@ -249,8 +252,12 @@ final class RadioPlayer {
         center.playbackState = isPlaying ? .playing : .paused
     }
 
-    private func loadArtwork(_ url: URL?) {
-        guard let url, artwork?.url != url else { return }
+    private func loadArtwork(_ station: Station) {
+        guard let url = station.logo, artwork?.url != url else { return }
+        if let data = station.logoData, let image = Self.artwork(from: data) {
+            artwork = (url, image)  // cached: no download
+            return
+        }
         Task {
             guard let (data, _) = try? await URLSession.shared.data(from: url),
                   let image = Self.artwork(from: data) else { return }

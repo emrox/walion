@@ -7,7 +7,7 @@ struct NowPlayingBar: View {
     var body: some View {
         if let station = player.current {
             HStack {
-                StationLogo(url: station.logo)
+                StationLogo(data: station.logoData, url: station.logo)
                 VStack(alignment: .leading) {
                     Text(station.name).lineLimit(1)
                     Text(player.error ?? (player.isLoading ? "Loading…" : player.isPlaying ? player.streamTitle ?? "Live" : "Stopped"))

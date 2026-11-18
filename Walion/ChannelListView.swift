@@ -66,7 +66,7 @@ struct ChannelRow: View {
             player.play(channel)
         } label: {
             HStack {
-                StationRow(name: channel.name, favicon: channel.faviconURL, detail: channel.country)
+                StationRow(name: channel.name, favicon: channel.faviconURL, logo: channel.logoData, detail: channel.country)
                 Spacer()
                 if player.isPlaying && player.current?.id == channel.stationID {
                     if player.isLoading {
@@ -79,45 +79,25 @@ struct ChannelRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Not `.task`: scrolling away must not cancel a download that's already under way.
+        .onAppear { Task { await channel.refreshLogoIfNeeded() } }
     }
 }
 
 struct StationRow: View {
     let name: String
     let favicon: String
+    var logo: Data? = nil
     let detail: String
 
     var body: some View {
         HStack {
-            StationLogo(url: .stationLogo(favicon))
+            StationLogo(data: logo, url: .stationLogo(favicon))
 
             VStack(alignment: .leading) {
                 Text(name).lineLimit(1)
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
-    }
-}
-
-struct StationLogo: View {
-    let url: URL?
-
-    var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFit()
-        } placeholder: {
-            Image(systemName: "radio").foregroundStyle(.secondary)
-        }
-        .frame(width: 40, height: 40)
-    }
-}
-
-extension URL {
-    /// Many station logos are plain http, which App Transport Security blocks.
-    /// Most of those hosts serve the same file over https.
-    static func stationLogo(_ string: String) -> URL? {
-        guard var components = URLComponents(string: string), components.host != nil else { return nil }
-        if components.scheme == "http" { components.scheme = "https" }
-        return components.url
     }
 }
