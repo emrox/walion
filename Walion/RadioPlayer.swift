@@ -44,12 +44,25 @@ final class RadioPlayer {
     /// The stream being loaded, muted until it plays.
     @ObservationIgnored private var next: Stream?
     @ObservationIgnored private var sleepTask: Task<Void, Never>?
+    /// When the system last paused us (see `update()`), and whether to resume after an interruption.
+    @ObservationIgnored private var systemStoppedAt: Date?
+    @ObservationIgnored private var resumeAfterInterruption = false
     /// Lock screen image for the station whose logo is `url`.
     @ObservationIgnored private var artwork: (url: URL, image: MPMediaItemArtwork)?
 
     init() {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setCategory(.playback)
+        // Phone calls, Siri, alarms: iOS says when they end and whether we may continue.
+        _ = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let options = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let began = type == AVAudioSession.InterruptionType.began.rawValue
+            let shouldResume = AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume)
+            MainActor.assumeIsolated { self?.handleInterruption(began: began, shouldResume: shouldResume) }
+        }
         #endif
         // Lock screen, Control Center, Dynamic Island, macOS Now Playing and media keys.
         // Live radio has no pause: "pause" means stop.
@@ -95,6 +108,7 @@ final class RadioPlayer {
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
     func resume() {
         guard let current else { return }
+        resumeAfterInterruption = false
         next?.stop()
         next = Stream(current) { [weak self] in self?.update() }
         isPlaying = true
@@ -145,6 +159,18 @@ final class RadioPlayer {
         publishNowPlaying()
     }
 
+    /// Resume after an interruption only if we were playing when it began. The player may
+    /// already have paused (and we stopped) a moment before iOS tells us it began, hence the
+    /// 2-second window. Older system stops, like unplugged headphones, don't count.
+    func handleInterruption(began: Bool, shouldResume: Bool) {
+        if began {
+            let justStopped = systemStoppedAt.map { Date.now.timeIntervalSince($0) < 2 } ?? false
+            resumeAfterInterruption = isPlaying || justStopped
+        } else if shouldResume && resumeAfterInterruption {
+            resume()
+        }
+    }
+
     /// Runs on every status or metadata change of either stream.
     private func update() {
         if let next, next.player.currentItem?.status == .failed {
@@ -170,6 +196,12 @@ final class RadioPlayer {
             player = loaded
             playing = loaded.station
             next = nil
+        }
+        // We never pause the audible stream ourselves, so the system did: another app
+        // took the audio, a phone call, headphones unplugged, or the station ended the stream.
+        if isPlaying, player?.player.timeControlStatus == .paused {
+            stop()
+            systemStoppedAt = .now
         }
         isLoading = next != nil || player?.player.timeControlStatus == .waitingToPlayAtSpecifiedRate
         // Some stations just repeat their name; that adds nothing.

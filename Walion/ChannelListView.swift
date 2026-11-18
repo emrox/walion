@@ -4,21 +4,34 @@ import SwiftData
 struct ChannelListView: View {
     @Environment(\.modelContext) private var context
     @Environment(RadioPlayer.self) private var player
-    @Query(sort: \Channel.addedAt) private var channels: [Channel]
+    @Query(sort: [SortDescriptor(\Channel.position), SortDescriptor(\Channel.addedAt)])
+    private var channels: [Channel]
     @State private var isSearching = false
 
     var body: some View {
         List {
             ForEach(channels) { channel in
                 ChannelRow(channel: channel)
+                    #if os(macOS)
+                    // iOS: swipe to delete instead; a context menu would take the long press
+                    // that starts dragging a row.
                     .contextMenu {
                         Button("Remove", systemImage: "trash", role: .destructive) {
                             context.delete(channel)
                         }
                     }
+                    #endif
             }
             .onDelete { offsets in
                 offsets.map { channels[$0] }.forEach(context.delete)
+            }
+            .onMove { from, to in
+                var reordered = channels
+                reordered.move(fromOffsets: from, toOffset: to)
+                for (index, channel) in reordered.enumerated() {
+                    channel.position = index
+                }
+                try? context.save()
             }
         }
         .overlay {
