@@ -46,6 +46,7 @@ struct HomeView: View {
             let match = try? context.fetch(FetchDescriptor<Channel>(predicate: #Predicate { $0.stationID == id }))
             match?.first?.lastPlayedAt = .now
             try? context.save()  // don't wait for autosave; the app may be killed while playing
+            Task { await RadioBrowser.countPlay(stationID: id) }
         }
     }
 }

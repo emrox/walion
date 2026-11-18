@@ -45,4 +45,12 @@ enum RadioBrowser {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode([SearchResult].self, from: data)
     }
+
+    /// Tells radio-browser a station was played, as its API asks; this feeds the popularity
+    /// ranking that search results are sorted by. Counted at most once per station per day.
+    /// Best effort: failures don't matter to the user.
+    static func countPlay(stationID: String) async {
+        let url = await server.value.appending(path: "json/url/\(stationID)")
+        _ = try? await URLSession.shared.data(from: url)
+    }
 }
