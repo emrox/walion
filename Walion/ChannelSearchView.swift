@@ -6,22 +6,22 @@ struct ChannelSearchView: View {
     @Environment(\.modelContext) private var context
     @Query private var channels: [Channel]
     @State private var query = ""
-    @State private var results: [Station] = []
+    @State private var results: [SearchResult] = []
     @State private var isLoading = false
     @State private var failure: String?
 
     var body: some View {
         let saved = Set(channels.map(\.stationID))
         NavigationStack {
-            List(results) { station in
-                let isSaved = saved.contains(station.id)
+            List(results) { result in
+                let isSaved = saved.contains(result.id)
                 Button {
                     // New channels go to the end of the list.
                     let last = channels.map(\.position).max() ?? -1
-                    context.insert(Channel(station, position: last + 1))
+                    context.insert(Channel(result, position: last + 1))
                 } label: {
                     HStack {
-                        StationRow(name: station.name, favicon: station.favicon, detail: detail(station))
+                        StationRow(name: result.name, favicon: result.favicon, detail: detail(result))
                         Spacer()
                         Image(systemName: isSaved ? "checkmark.circle.fill" : "plus.circle")
                             .foregroundStyle(.tint)
@@ -60,9 +60,9 @@ struct ChannelSearchView: View {
         }
     }
 
-    private func detail(_ station: Station) -> String {
-        let format = station.bitrate > 0 ? "\(station.codec) \(station.bitrate) kbps" : station.codec
-        return [station.country, format].filter { !$0.isEmpty }.joined(separator: " · ")
+    private func detail(_ result: SearchResult) -> String {
+        let format = result.bitrate > 0 ? "\(result.codec) \(result.bitrate) kbps" : result.codec
+        return [result.country, format].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// Debounced: `.task(id:)` cancels the previous run on every keystroke,

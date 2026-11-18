@@ -15,12 +15,12 @@ final class Channel {
     /// Place in the channel list; the user can drag to reorder. Ties sort by `addedAt`.
     var position = 0
 
-    init(_ station: Station, position: Int = 0) {
+    init(_ result: SearchResult, position: Int = 0) {
         self.position = position
-        stationID = station.id
-        name = station.name
-        streamURL = station.urlResolved
-        faviconURL = station.favicon
-        country = station.country
+        stationID = result.id
+        name = result.name
+        streamURL = result.urlResolved
+        faviconURL = result.favicon
+        country = result.country
     }
 }

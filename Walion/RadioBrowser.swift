@@ -1,7 +1,7 @@
 import Foundation
 
-/// A station as returned by the radio-browser.info API.
-nonisolated struct Station: Decodable, Identifiable, Sendable {
+/// A station found by a radio-browser.info search. Saved as a `Channel`; played as a `RadioPlayer.Station`.
+nonisolated struct SearchResult: Decodable, Identifiable, Sendable {
     let stationuuid: String
     let name: String
     let urlResolved: String
@@ -27,7 +27,7 @@ enum RadioBrowser {
         return URL(string: "https://de1.api.radio-browser.info")!
     }
 
-    static func search(name: String) async throws -> [Station] {
+    static func search(name: String) async throws -> [SearchResult] {
         let url = await server.value
             .appending(path: "json/stations/search")
             .appending(queryItems: [
@@ -43,6 +43,6 @@ enum RadioBrowser {
         }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode([Station].self, from: data)
+        return try decoder.decode([SearchResult].self, from: data)
     }
 }
