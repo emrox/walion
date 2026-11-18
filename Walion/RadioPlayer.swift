@@ -108,6 +108,9 @@ final class RadioPlayer {
     /// Live radio: always reconnect instead of un-pausing a stale buffer.
     func resume() {
         guard let current else { return }
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(true)  // released by stop()
+        #endif
         resumeAfterInterruption = false
         next?.stop()
         next = Stream(current) { [weak self] in self?.update() }
@@ -146,7 +149,11 @@ final class RadioPlayer {
         }
     }
 
-    func stop() {
+    /// `releasingAudio`: hand the audio back to iOS, so it can power down the audio hardware
+    /// and other apps (podcasts, music) may continue. Not when iOS stopped us (call, another
+    /// app, headphones): iOS already has the audio, and releasing it then could cost us the
+    /// "interruption ended" notice that resume-after-calls needs.
+    func stop(releasingAudio: Bool = true) {
         setSleepTimer(nil)
         next?.stop()
         next = nil
@@ -157,6 +164,11 @@ final class RadioPlayer {
         isLoading = false
         streamTitle = nil
         publishNowPlaying()
+        #if os(iOS)
+        if releasingAudio {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+        #endif
     }
 
     /// Resume after an interruption only if we were playing when it began. The player may
@@ -200,7 +212,7 @@ final class RadioPlayer {
         // We never pause the audible stream ourselves, so the system did: another app
         // took the audio, a phone call, headphones unplugged, or the station ended the stream.
         if isPlaying, player?.player.timeControlStatus == .paused {
-            stop()
+            stop(releasingAudio: false)
             systemStoppedAt = .now
         }
         isLoading = next != nil || player?.player.timeControlStatus == .waitingToPlayAtSpecifiedRate
