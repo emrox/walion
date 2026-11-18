@@ -43,9 +43,7 @@ struct HomeView: View {
         // Lives here, not in a list view, so lock-screen next/previous counts too.
         .onChange(of: player.playing) {
             guard let id = player.playing?.id else { return }
-            let match = try? context.fetch(FetchDescriptor<Channel>(predicate: #Predicate { $0.stationID == id }))
-            match?.first?.lastPlayedAt = .now
-            try? context.save()  // don't wait for autosave; the app may be killed while playing
+            Channel.markPlayed(stationID: id, in: context)
             Task { await RadioBrowser.countPlay(stationID: id) }
         }
     }

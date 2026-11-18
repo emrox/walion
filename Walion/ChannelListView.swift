@@ -26,11 +26,7 @@ struct ChannelListView: View {
                 offsets.map { channels[$0] }.forEach(context.delete)
             }
             .onMove { from, to in
-                var reordered = channels
-                reordered.move(fromOffsets: from, toOffset: to)
-                for (index, channel) in reordered.enumerated() {
-                    channel.position = index
-                }
+                Self.move(channels, from: from, to: to)
                 try? context.save()
             }
         }
@@ -52,6 +48,17 @@ struct ChannelListView: View {
         }
         .onChange(of: channels, initial: true) {
             player.channels = channels.compactMap(RadioPlayer.Station.init)
+        }
+    }
+}
+
+extension ChannelListView {
+    /// A drag in the list: renumbers `channels` (given in list order) so the moved rows land at `destination`.
+    static func move(_ channels: [Channel], from source: IndexSet, to destination: Int) {
+        var reordered = channels
+        reordered.move(fromOffsets: source, toOffset: destination)
+        for (index, channel) in reordered.enumerated() {
+            channel.position = index
         }
     }
 }

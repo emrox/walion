@@ -16,9 +16,7 @@ struct ChannelSearchView: View {
             List(results) { result in
                 let isSaved = saved.contains(result.id)
                 Button {
-                    // New channels go to the end of the list.
-                    let last = channels.map(\.position).max() ?? -1
-                    let channel = Channel(result, position: last + 1)
+                    let channel = Channel(result, position: Channel.nextPosition(after: channels))
                     context.insert(channel)
                     Task { await channel.refreshLogoIfNeeded() }
                 } label: {

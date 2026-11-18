@@ -43,3 +43,17 @@ extension Channel {
         logoData = thumbnail
     }
 }
+
+extension Channel {
+    /// Position for a newly added channel: after all others.
+    static func nextPosition(after channels: [Channel]) -> Int {
+        (channels.map(\.position).max() ?? -1) + 1
+    }
+
+    /// For "Recently Played". Saves right away: the app may be killed while playing.
+    @MainActor static func markPlayed(stationID: String, in context: ModelContext) {
+        let match = try? context.fetch(FetchDescriptor<Channel>(predicate: #Predicate { $0.stationID == stationID }))
+        match?.first?.lastPlayedAt = .now
+        try? context.save()
+    }
+}

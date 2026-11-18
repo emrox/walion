@@ -44,3 +44,13 @@ xcrun simctl launch booted de.emrox.walion
 ```
 
 Use `xcrun simctl list devices available` to see which simulator names exist on your machine.
+
+## Run the tests
+
+In Xcode press **⌘U**, or from the command line:
+
+```sh
+xcodebuild test -project Walion.xcodeproj -scheme Walion -destination 'platform=macOS' -derivedDataPath build
+```
+
+The tests need no network: radio-browser is stubbed and the player plays generated silent audio files.
